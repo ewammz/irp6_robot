@@ -43,6 +43,8 @@ private:
 InputPort<std::vector<double> >computedPwm_in;
 
 OutputPort<std::vector<double> >posInc_out;
+OutputPort<std::vector<double> >energy_out;
+OutputPort<float>power_out;
 OutputPort<std::vector<int> >deltaInc_out;
 
 OutputPort<Eigen::VectorXd > port_motor_position_;
@@ -60,9 +62,13 @@ SynchroState synchro_state;
 int synchro_drive;
 
 std::vector<double> pos_inc;
-
+std::vector<double> energy;
 std::vector<int> increment;
+std::vector<int> current;
+float total_power;
+std::vector<float> voltage;
 std::vector<double> motor_pos;
+std::vector<double> old_pwm;
 std::vector<double> pwm;
 
 hi_moxa::HI_moxa hi_;
@@ -77,6 +83,8 @@ HardwareInterface(const std::string& name):
 {
     this->addPort("computedPwm_in", computedPwm_in).doc("Receiving a value of computed PWM.");
     this->addPort("posInc_out", posInc_out).doc("Sends out a value of expected position increment.");
+    this->addPort("power_out", power_out).doc("Sends out a value of total power.");
+    this->addPort("energy_out", energy_out).doc("Sends out a value of energy.");
     this->addPort("deltaInc_out", deltaInc_out).doc("Sends out a value increment increase in cycle.");
 
     this->ports()->addPort("MotorPosition", port_motor_position_);
@@ -98,14 +106,23 @@ bool configureHook()
   auto_synchronize = true;
 
   increment.resize(number_of_drives);
+  current.resize(number_of_drives);
+  voltage.resize(number_of_drives);
   pos_inc.resize(number_of_drives);
   pwm.resize(number_of_drives);
+  old_pwm.resize(number_of_drives);
+  energy.resize(number_of_drives);
 
   for(int i=0; i<number_of_drives; i++)
   {
     increment[i] = 0;
+    current[i] = 0;
+    voltage[i] = 0;
     pos_inc[i] = 0;
     pwm[0] = 0;
+    old_pwm[0] = 0;
+    energy[i] = 0;
+
   }
 
   std::vector<std::string> ports;
@@ -201,7 +218,8 @@ void updateHook()
 
     for(int i=0; i<number_of_drives; i++)
     {
-      hi_.set_pwm(i, pwm[i]);
+    	old_pwm[i] = pwm[i];
+    	hi_.set_pwm(i, pwm[i]);
     }
 
     hi_.HI_read_write_hardware();
@@ -334,6 +352,25 @@ void updateHook()
         {
             pos_inc[i] = 0;
         }
+    }
+
+    if(state==SERVOING)
+    {
+    	total_power=0.0;
+        for(int i=0; i<number_of_drives; i++)
+        {
+        	current[i] = hi_.get_current(i);
+        	float axis_power = ((float) abs(current[i]))/1000.0 * fabs(old_pwm[i]/255.0)*hi_.get_voltage(i);
+        	total_power += axis_power;
+        }
+        for(int i=0; i<number_of_drives; i++)
+        {
+        	float step_energy = ((float) abs(current[i])) / 1000.0 * fabs(old_pwm[i]/255.0) * (hi_.get_voltage(i) - (total_power / 40.0))* (0.002);
+        	energy[i]=step_energy;
+        }
+        power_out.write(total_power);
+        energy_out.write(energy);
+
     }
 
     deltaInc_out.write(increment);
