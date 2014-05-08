@@ -16,6 +16,8 @@
   <build_depend>rtt</build_depend> 
   <build_depend>rtt_ros</build_depend> 
   <build_depend>std_msgs</build_depend> 
+  <build_depend>irp6_msgs</build_depend> 
+  <build_depend>rtt_rosclock</build_depend>
 
   <run_depend>rtt</run_depend> 
   <run_depend>rtt_ros</run_depend> 
@@ -32,6 +34,7 @@
       <plugin_depend>rtt_rosparam</plugin_depend>
       <plugin_depend>rtt_std_msgs</plugin_depend>
       <plugin_depend>rtt_std_srvs</plugin_depend>
+       <plugin_depend>irp6_msgs</plugin_depend>
     </rtt_ros>
   </export>
 </package>

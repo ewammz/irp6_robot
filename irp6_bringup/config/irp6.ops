@@ -6,6 +6,7 @@ ros.import("rtt_sensor_msgs")
 ros.import("rtt_actionlib_msgs")
 ros.import("rtt_trajectory_msgs")
 ros.import("rtt_control_msgs")
+ros.import("rtt_irp6_msgs")
 
 ros.import("conman");
 ros.import("conman_ros");
@@ -170,6 +171,10 @@ connect("trans.JointPosition", "JntPub.JointVelocity", ConnPolicy());
 connect("trans.JointPosition", "JntPub.JointEffort", ConnPolicy());
 
 stream("JntPub.joint_state", ros.comm.topic("/joint_states"));
+stream("HardwareInterface.power_out", ros.comm.topic("/power_out"));
+
+
+
 
 JntPub.configure()
 

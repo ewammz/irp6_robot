@@ -1,8 +1,10 @@
 #include <rtt/TaskContext.hpp>
 #include <rtt/Port.hpp>
 #include <rtt/Component.hpp>
-
+#include <irp6_msgs/energy.h>
 #include <Eigen/Dense>
+#include <std_msgs/Float64.h>
+#include "rtt_rosclock/rtt_rosclock.h"
 
 #include "hi_moxa.h"
 
@@ -44,7 +46,7 @@ InputPort<std::vector<double> >computedPwm_in;
 
 OutputPort<std::vector<double> >posInc_out;
 OutputPort<std::vector<double> >energy_out;
-OutputPort<float>power_out;
+OutputPort<irp6_msgs::energy>power_out;
 OutputPort<std::vector<int> >deltaInc_out;
 
 OutputPort<Eigen::VectorXd > port_motor_position_;
@@ -66,10 +68,13 @@ std::vector<double> energy;
 std::vector<int> increment;
 std::vector<int> current;
 float total_power;
+float sum_total_power;
 std::vector<float> voltage;
 std::vector<double> motor_pos;
 std::vector<double> old_pwm;
 std::vector<double> pwm;
+
+irp6_msgs::energy msg;
 
 hi_moxa::HI_moxa hi_;
 
@@ -122,7 +127,7 @@ bool configureHook()
     pwm[0] = 0;
     old_pwm[0] = 0;
     energy[i] = 0;
-
+    msg.energy[i]=0;
   }
 
   std::vector<std::string> ports;
@@ -164,6 +169,7 @@ bool startHook()
 {
     try
     {
+
         hi_.HI_read_write_hardware();
 
         if(!hi_.robot_synchronized())
@@ -357,6 +363,8 @@ void updateHook()
     if(state==SERVOING)
     {
     	total_power=0.0;
+    	ros::Time now = rtt_rosclock::host_rt_now();
+    	msg.header.stamp=now;
         for(int i=0; i<number_of_drives; i++)
         {
         	current[i] = hi_.get_current(i);
@@ -367,10 +375,11 @@ void updateHook()
         {
         	float step_energy = ((float) abs(current[i])) / 1000.0 * fabs(old_pwm[i]/255.0) * (hi_.get_voltage(i) - (total_power / 40.0))* (0.002);
         	energy[i]=step_energy;
+        	msg.energy[i] += energy[i];
         }
-        power_out.write(total_power);
+        msg.power = total_power;
+        power_out.write(msg);
         energy_out.write(energy);
-
     }
 
     deltaInc_out.write(increment);
